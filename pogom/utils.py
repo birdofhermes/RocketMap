@@ -313,6 +313,10 @@ def get_args():
                         help=('Use speed scanning to identify spawn points ' +
                               'and then scan closest spawns.'),
                         action='store_true', default=False)
+    parser.add_argument('-gs', '--gym-scan',
+                        help=('Use gym search scanning (instead of hex ' +
+                              'grid). Searches all gyms ALREADY in db.'),
+                        action='store_true', default=False)
     parser.add_argument('-spin', '--pokestop-spinning',
                         help=('Spin Pokestops with 50%% probability.'),
                         action='store_true', default=False)
@@ -832,6 +836,8 @@ def get_args():
             args.scheduler = 'HexSearchSpawnpoint'
         elif args.speed_scan:
             args.scheduler = 'SpeedScan'
+        elif args.gym_scan:
+            args.scheduler = "GymSearch"
         else:
             args.scheduler = 'HexSearch'
 

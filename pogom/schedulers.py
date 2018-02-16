@@ -60,14 +60,14 @@ from queue import Empty
 from operator import itemgetter
 from datetime import datetime, timedelta
 
-from .transform import get_new_coords
+from .transform import get_new_coords, intermediate_point
 from .models import (hex_bounds, SpawnPoint, ScannedLocation,
                      ScanSpawnPoint, HashKeys)
 from .utils import now, cur_sec, cellid, distance
 from .altitude import get_altitude
 from .geofence import Geofences
 from .cluster import cluster_spawnpoints
-
+from models import Gym
 log = logging.getLogger(__name__)
 
 
@@ -1198,6 +1198,155 @@ class SpeedScan(HexSearch):
                             item['done'] = 'Scanned'
 
 
+# Gym Search is used to find and scan only gyms with the intent
+# of finding raids in a quick and predictable manner.
+class GymSearch(BaseScheduler):
+    # Call base initialization, set step_distance.
+    def __init__(self, queues, status, args):
+        BaseScheduler.__init__(self, queues, status,
+                               args)
+
+        # We are only scanning for gyms, the scan radius is 450m.
+        self.scan_radius = 450
+
+        # Scanning for pokemon won't work. make sure we don't try.
+        if not self.args.no_pokemon:
+            log.error("Gym search doesn't work with pokemon, exiting!")
+            sys.exit()
+
+        # This will hold the list of locations to scan so it can be reused,
+        # instead of recalculating on each loop.
+        self.locations = False
+
+    # Helper class to cluster nearby search points together.
+    class Searchcluster(object):
+
+        def __init__(self, point):
+            self._points = [point]
+            self.centroid = point
+
+        def __getitem__(self, key):
+            return self._points[key]
+
+        def __iter__(self):
+            for x in self._points:
+                yield x
+
+        def __contains__(self, item):
+            return item in self._points
+
+        def __len__(self):
+            return len(self._points)
+
+        def append(self, point):
+            # update centroid
+            f = len(self._points) / (len(self._points) + 1.0)
+            self.centroid = intermediate_point(point, self.centroid, f)
+
+            self._points.append(point)
+
+        def simulate_centroid(self, point):
+            f = len(self._points) / (len(self._points) + 1.0)
+            new_centroid = intermediate_point(point, self.centroid, f)
+
+            return new_centroid
+
+    def check_cluster(self, point, cluster, radius):
+        # Discard too far away.
+        if distance(point, cluster.centroid) > 2 * radius:
+            return False
+
+        new_centroid = cluster.simulate_centroid(point)
+
+        # We'd be removing ourselves.
+        if distance(point, new_centroid) > radius:
+            return False
+
+        # We'd be removing x
+        if any(distance(x, new_centroid) > radius for x in cluster):
+            return False
+
+        # It's ok to cluster.
+        return True
+
+    # Cluster the gyms so we don't scan unneeded
+    def cluster(self, gyms):
+        clusters = []
+
+        for _, g in gyms:
+            p = (g['latitude'], g['longitude'])
+
+            if len(clusters) == 0:
+                clusters.append(GymSearch.Searchcluster(p))
+            else:
+                c = min(clusters, key=lambda x: distance(p, x.centroid))
+
+                if self.check_cluster(p, c, self.scan_radius):
+                    c.append(p)
+                else:
+                    c = GymSearch.Searchcluster(p)
+                    clusters.append(c)
+
+        return clusters
+
+    # On location change, empty the current queue and the locations list.
+    def location_changed(self, scan_location, dbq):
+        self.scan_location = scan_location
+        self.empty_queues()
+        self.locations = False
+
+    # Generates the list of locations to scan.
+    def _generate_locations(self):
+        gyms = Gym.get_all()
+        clusters = self.cluster(enumerate(gyms))
+
+        cluster_coordinates = []
+        for cluster in clusters:
+            cluster_coordinates.append( cluster.centroid)
+
+        # Geofence results.
+        if self.geofences.is_enabled():
+            cluster_coordinates = self.geofences.get_geofenced_coordinates(
+                cluster_coordinates)
+            if not cluster_coordinates:
+                log.error(
+                    'No locations regarded as valid for desired scan area. '
+                    'Check your provided geofences. Aborting.')
+                sys.exit()
+
+        log.info("Clustered %d gyms into %d search locations",
+                 len(gyms), len(clusters))
+
+        # Add the altitudes and make the list.
+        points = []
+        for step, location in enumerate(cluster_coordinates):
+            altitude = get_altitude(self.args,
+                                    location)
+            points.append(
+                (step,
+                 (location[0], location[1], altitude),
+                 0, 0))
+        return points
+
+    # Schedule the work to be done.
+    def schedule(self):
+        if not self.scan_location:
+            log.warning(
+                'Cannot schedule work until scan location has been set.')
+            return
+
+        # Only generate the list of locations if we don't have it already
+        # calculated.
+        if not self.locations:
+            self.locations = self._generate_locations()
+
+        # Queue up the locations.
+        for location in self.locations:
+            self.queues[0].put(location)
+            log.debug("Added location {}.".format(location))
+        self.ready = True
+
+
 # The SchedulerFactory returns an instance of the correct type of scheduler.
 class SchedulerFactory():
     __schedule_classes = {
@@ -1205,6 +1354,7 @@ class SchedulerFactory():
         "hexsearchspawnpoint": HexSearchSpawnpoint,
         "spawnscan": SpawnScan,
         "speedscan": SpeedScan,
+        "gymsearch": GymSearch,
     }
 
     @staticmethod
