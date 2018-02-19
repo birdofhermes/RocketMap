@@ -60,7 +60,7 @@ from queue import Empty
 from operator import itemgetter
 from datetime import datetime, timedelta
 
-from .transform import get_new_coords, intermediate_point
+from .transform import get_new_coords
 from .models import (hex_bounds, SpawnPoint, ScannedLocation,
                      ScanSpawnPoint, HashKeys)
 from .utils import now, cur_sec, cellid, distance

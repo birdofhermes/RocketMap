@@ -71,7 +71,7 @@ class LocationCluster(object):
 
 class SpawnCluster(LocationCluster):
     def __init__(self, spawnpoint):
-        LocationCluster.__init__(self,spawnpoint)
+        LocationCluster.__init__(self, spawnpoint)
         self.min_time = spawnpoint['time']
         self.max_time = spawnpoint['time']
         self.spawnpoint_id = spawnpoint['spawnpoint_id']
