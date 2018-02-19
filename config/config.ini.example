@@ -46,7 +46,7 @@
 #db-threads:                    # Number of db threads; increase if the db queue falls behind. (default=1)
 
 
-# Scan method (speed preferable, (default is SpeedScan)
+# Scan method (the default SpeedScan is preferred)
 #############
 #scheduler: SpeedScan            # Use speed-scan as the search scheduler.
                                 # This is the recommended Scheduler for most uses.
