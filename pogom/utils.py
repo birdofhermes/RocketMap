@@ -300,23 +300,14 @@ def get_args():
                         help=('Disables PokeStops from the map (including ' +
                               'parsing them into local db).'),
                         action='store_true', default=False)
-    parser.add_argument('-ss', '--spawnpoint-scanning',
-                        help=('Use spawnpoint scanning (instead of hex ' +
-                              'grid). Scans in a circle based on step_limit ' +
-                              'when on DB.'),
-                        action='store_true', default=False)
+    parser.add_argument('-sch', '--scheduler',
+                        help=('Set scan scheduler to use. One of: '
+                              'hex, spawnpoint, speed, gym'),
+                        type=str, default='hex')
     parser.add_argument('-ssct', '--ss-cluster-time',
                         help=('Time threshold in seconds for spawn point ' +
                               'clustering (0 to disable).'),
                         type=int, default=0)
-    parser.add_argument('-speed', '--speed-scan',
-                        help=('Use speed scanning to identify spawn points ' +
-                              'and then scan closest spawns.'),
-                        action='store_true', default=False)
-    parser.add_argument('-gs', '--gym-scan',
-                        help=('Use gym search scanning (instead of hex ' +
-                              'grid). Searches all gyms ALREADY in db.'),
-                        action='store_true', default=False)
     parser.add_argument('-spin', '--pokestop-spinning',
                         help=('Spin Pokestops with 50%% probability.'),
                         action='store_true', default=False)
@@ -830,16 +821,21 @@ def get_args():
                 args.ignorelist = frozenset([int(l.strip()) for l in f])
 
         # Decide which scanning mode to use.
-        if args.spawnpoint_scanning:
+        if args.scheduler == 'spawnpoint':
             args.scheduler = 'SpawnScan'
-        elif args.skip_empty:
+        elif args.scheduler == 'skip-empty':
+            # TODO find a better name for this scheduler
             args.scheduler = 'HexSearchSpawnpoint'
-        elif args.speed_scan:
+        elif args.scheduler == 'speed':
             args.scheduler = 'SpeedScan'
-        elif args.gym_scan:
-            args.scheduler = "GymSearch"
-        else:
+        elif args.scheduler == 'fort':
+            args.scheduler = "FortSearch"
+        elif args.scheduler == 'hex':
             args.scheduler = 'HexSearch'
+        else:
+            parser.print_usage()
+            print(sys.argv[0] + "Unknown Scheduler: {}".format(args.scheduler))
+            sys.exit(1)
 
         # Disable webhook scheduler updates if webhooks are disabled
         if args.webhooks is None:

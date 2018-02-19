@@ -67,7 +67,7 @@ from .utils import now, cur_sec, cellid, distance
 from .altitude import get_altitude
 from .geofence import Geofences
 from .cluster import cluster_spawnpoints, cluster_locations
-from models import Gym
+from models import Gym, Pokestop
 log = logging.getLogger(__name__)
 
 
@@ -1198,9 +1198,9 @@ class SpeedScan(HexSearch):
                             item['done'] = 'Scanned'
 
 
-# Gym Search is used to find and scan only gyms with the intent
-# of finding raids in a quick and predictable manner.
-class GymSearch(BaseScheduler):
+# Fort Search is used to find and scan only gyms and pokemon with the intent
+# of finding raids (or lured stops) in a quick and predictable fashion.
+class FortSearch(BaseScheduler):
     # Call base initialization, set step_distance.
     def __init__(self, queues, status, args):
         BaseScheduler.__init__(self, queues, status,
@@ -1211,7 +1211,12 @@ class GymSearch(BaseScheduler):
 
         # Scanning for pokemon won't work. make sure we don't try.
         if not self.args.no_pokemon:
-            log.error("Gym search doesn't work with pokemon, exiting!")
+            log.error("Fort search doesn't work with pokemon, exiting!")
+            sys.exit()
+
+        if self.args.no_gyms and self.args.no_pokestops:
+            log.error("Fort search must have gyms or pokestops enabled,"
+                      " exiting!")
             sys.exit()
 
         # This will hold the list of locations to scan so it can be reused,
@@ -1226,27 +1231,35 @@ class GymSearch(BaseScheduler):
 
     # Generates the list of locations to scan.
     def _generate_locations(self):
-        gyms = Gym.get_all()
+        if self.args.no_pokestops:
+            forts = Gym.get_all()
+        elif self.args.no_gyms:
+            forts = Pokestop.get_all()
+        else:
+            forts = Gym.get_all() + Pokestop.get_all()
+
+        log.info("Found %s gyms (and stops)", len(forts))
+
         clustered_gyms = []
 
-        # Geofence the gyms.
+        # Geofence the forts.
         if self.geofences.is_enabled():
-            locations = self.geofences.get_geofenced_coordinates(gyms)
+            locations = self.geofences.get_geofenced_coordinates(forts)
             if not locations:
                 log.error(
                     'No locations regarded as valid for desired scan area. '
                     'Check your provided geofences. Aborting.')
                 sys.exit()
         else:
-            locations = gyms
+            locations = forts
 
         clusters = cluster_locations(locations, self.scan_radius)
 
         for cluster in clusters:
             clustered_gyms.append(cluster.centroid)
 
-        log.info("Clustered %d gyms into %d search locations",
-                 len(gyms), len(clusters))
+        log.info("Clustered %d forts into %d search locations",
+                 len(forts), len(clusters))
 
         # Add the altitudes and make the list.
         points = []
@@ -1285,7 +1298,7 @@ class SchedulerFactory():
         "hexsearchspawnpoint": HexSearchSpawnpoint,
         "spawnscan": SpawnScan,
         "speedscan": SpeedScan,
-        "gymsearch": GymSearch,
+        "gymsearch": FortSearch,
     }
 
     @staticmethod
