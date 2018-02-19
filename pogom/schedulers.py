@@ -66,7 +66,7 @@ from .models import (hex_bounds, SpawnPoint, ScannedLocation,
 from .utils import now, cur_sec, cellid, distance
 from .altitude import get_altitude
 from .geofence import Geofences
-from .cluster import cluster_spawnpoints
+from .cluster import cluster_spawnpoints, cluster_locations
 from models import Gym
 log = logging.getLogger(__name__)
 
@@ -1218,77 +1218,6 @@ class GymSearch(BaseScheduler):
         # instead of recalculating on each loop.
         self.locations = False
 
-    # Helper class to cluster nearby search points together.
-    class Searchcluster(object):
-
-        def __init__(self, point):
-            self._points = [point]
-            self.centroid = point
-
-        def __getitem__(self, key):
-            return self._points[key]
-
-        def __iter__(self):
-            for x in self._points:
-                yield x
-
-        def __contains__(self, item):
-            return item in self._points
-
-        def __len__(self):
-            return len(self._points)
-
-        def append(self, point):
-            # update centroid
-            f = len(self._points) / (len(self._points) + 1.0)
-            self.centroid = intermediate_point(point, self.centroid, f)
-
-            self._points.append(point)
-
-        def simulate_centroid(self, point):
-            f = len(self._points) / (len(self._points) + 1.0)
-            new_centroid = intermediate_point(point, self.centroid, f)
-
-            return new_centroid
-
-    def check_cluster(self, point, cluster, radius):
-        # Discard too far away.
-        if distance(point, cluster.centroid) > 2 * radius:
-            return False
-
-        new_centroid = cluster.simulate_centroid(point)
-
-        # We'd be removing ourselves.
-        if distance(point, new_centroid) > radius:
-            return False
-
-        # We'd be removing x
-        if any(distance(x, new_centroid) > radius for x in cluster):
-            return False
-
-        # It's ok to cluster.
-        return True
-
-    # Cluster the gyms so we don't scan unneeded
-    def cluster(self, gyms):
-        clusters = []
-
-        for _, g in gyms:
-            p = (g['latitude'], g['longitude'])
-
-            if len(clusters) == 0:
-                clusters.append(GymSearch.Searchcluster(p))
-            else:
-                c = min(clusters, key=lambda x: distance(p, x.centroid))
-
-                if self.check_cluster(p, c, self.scan_radius):
-                    c.append(p)
-                else:
-                    c = GymSearch.Searchcluster(p)
-                    clusters.append(c)
-
-        return clusters
-
     # On location change, empty the current queue and the locations list.
     def location_changed(self, scan_location, dbq):
         self.scan_location = scan_location
@@ -1298,28 +1227,30 @@ class GymSearch(BaseScheduler):
     # Generates the list of locations to scan.
     def _generate_locations(self):
         gyms = Gym.get_all()
-        clusters = self.cluster(enumerate(gyms))
+        clustered_gyms = []
 
-        cluster_coordinates = []
-        for cluster in clusters:
-            cluster_coordinates.append( cluster.centroid)
-
-        # Geofence results.
+        # Geofence the gyms.
         if self.geofences.is_enabled():
-            cluster_coordinates = self.geofences.get_geofenced_coordinates(
-                cluster_coordinates)
-            if not cluster_coordinates:
+            locations = self.geofences.get_geofenced_coordinates(gyms)
+            if not locations:
                 log.error(
                     'No locations regarded as valid for desired scan area. '
                     'Check your provided geofences. Aborting.')
                 sys.exit()
+        else:
+            locations = gyms
+
+        clusters = cluster_locations(locations, self.scan_radius)
+
+        for cluster in clusters:
+            clustered_gyms.append(cluster.centroid)
 
         log.info("Clustered %d gyms into %d search locations",
                  len(gyms), len(clusters))
 
         # Add the altitudes and make the list.
         points = []
-        for step, location in enumerate(cluster_coordinates):
+        for step, location in enumerate(clustered_gyms):
             altitude = get_altitude(self.args,
                                     location)
             points.append(
