@@ -301,9 +301,11 @@ def get_args():
                               'parsing them into local db).'),
                         action='store_true', default=False)
     parser.add_argument('-sch', '--scheduler',
-                        help=('Set scan scheduler to use. One of: '
-                              'hex, spawnpoint, speed, gym'),
-                        type=str, default='hex')
+                        help='Set scan scheduler to use.',
+                        choices=['SpeedScan', 'SpawnScan',
+                                 'FortSearch', 'HexSearch',
+                                 'HexSearchSpawnpoint'],
+                        default='SpeedScan')
     parser.add_argument('-ssct', '--ss-cluster-time',
                         help=('Time threshold in seconds for spawn point ' +
                               'clustering (0 to disable).'),
@@ -820,25 +822,8 @@ def get_args():
             with open(args.ignorelist_file) as f:
                 args.ignorelist = frozenset([int(l.strip()) for l in f])
 
-        # Decide which scanning mode to use.
-        if args.scheduler == 'spawnpoint':
-            args.scheduler = 'SpawnScan'
-        elif args.scheduler == 'skip-empty':
-            # TODO find a better name for this scheduler
-            args.scheduler = 'HexSearchSpawnpoint'
-        elif args.scheduler == 'speed':
-            args.scheduler = 'SpeedScan'
-        elif args.scheduler == 'fort':
-            args.scheduler = "FortSearch"
-            if args.beehive:
-                print(sys.argv[0] + "Beehive is not compatible with "
-                                    "Fort Scheduler!")
-                sys.exit(1)
-        elif args.scheduler == 'hex':
-            args.scheduler = 'HexSearch'
-        else:
-            parser.print_usage()
-            print(sys.argv[0] + "Unknown Scheduler: {}".format(args.scheduler))
+        if args.scheduler.lower() == 'fortsearch' and args.beehive:
+            print(sys.argv[0] + "Beehive is not compatible with Fort search!")
             sys.exit(1)
 
         # Disable webhook scheduler updates if webhooks are disabled

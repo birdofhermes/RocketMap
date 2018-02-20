@@ -1298,7 +1298,7 @@ class SchedulerFactory():
         "hexsearchspawnpoint": HexSearchSpawnpoint,
         "spawnscan": SpawnScan,
         "speedscan": SpeedScan,
-        "gymsearch": FortSearch,
+        "fortsearch": FortSearch,
     }
 
     @staticmethod
