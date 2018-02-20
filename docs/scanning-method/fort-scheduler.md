@@ -20,7 +20,7 @@ Fort Scheduler is only meant to be run after a database has been populated with 
 
 What command line args should I use for scanning gyms only?
 
-> Here's an example: `runserver.py -fs -np -nk -sd 60 -w 10 -ac accounts.csv`
+> Here's an example: `runserver.py -sch FortSearch -np -nk -sd 60 -w 10 -ac accounts.csv`
 
 How big should I make my -st?
 
@@ -46,8 +46,8 @@ We have 200 gyms we want to scan:
  
  ` 126 gyms / 6 gyms per minute per worker = ` 21 workers  
 
-arguments: `runserver.py -fs -np -nk -sd 10 -w 21`
+arguments: `runserver.py -sch FortSearch -np -nk -sd 10 -w 21`
 
 If we allow each gym to only be scanned every 2nd minute, was can reduce the workers to 10
 
-arguments: `runserver.py -fs -np -nk -sd 10 -w 10`
+arguments: `runserver.py -sch FortSearch -np -nk -sd 10 -w 10`

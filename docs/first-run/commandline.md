@@ -252,20 +252,20 @@ variables which override config file values which override defaults.
       -nk, --no-pokestops   Disables PokeStops from the map (including parsing
                             them into local db). [env var: POGOMAP_NO_POKESTOPS]
       -sch, --scheduler
-                            Sets the method of scanning (default: hex)
-                            ''speed''
+                            Sets the method of scanning (default: SpeedScan)
+                            ''SpeedScan''
                             Recommended value for normal scanning of pokémon.
                             Identify spawn points and then scan closest spawns.
-                            ''hex''
+                            ''HexSearch''
                             Default scan method, scans all cells around 
                             location based on step size 
-                            ''skip-empty''
+                            ''HexSearchSpawnpoint''
                             Requires previously populated database. Scans only
                             hex cells that aren't empty.
-                            ''spawnpoint''
+                            ''SpawnScan''
                             Use spawnpoint scanning (instead of hex grid). Scans
                             in a circle based on step_limit when on DB.
-                            ''fort''
+                            ''FortSearch''
                             Requires previously populated database. 
                             Cluster and scan only gyms and/or pokestops. 
                             [env var: POGOMAP_SCHEDULER]
