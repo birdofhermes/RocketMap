@@ -830,6 +830,10 @@ def get_args():
             args.scheduler = 'SpeedScan'
         elif args.scheduler == 'fort':
             args.scheduler = "FortSearch"
+            if args.beehive:
+                print(sys.argv[0] + "Beehive is not compatible with "
+                                    "Fort Scheduler!")
+                sys.exit(1)
         elif args.scheduler == 'hex':
             args.scheduler = 'HexSearch'
         else:
