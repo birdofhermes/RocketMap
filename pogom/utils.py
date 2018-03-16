@@ -300,6 +300,7 @@ def get_args():
                         help=('Disables PokeStops from the map (including ' +
                               'parsing them into local db).'),
                         action='store_true', default=False)
+#<<<<<<< HEAD
     parser.add_argument('-nwc', '--no-weather-cells',
                         help=('Disables weather for cells from the map' +
                               ' (including parsing them into local db).'),
@@ -309,6 +310,8 @@ def get_args():
                               'grid). Scans in a circle based on step_limit ' +
                               'when on DB.'),
                         action='store_true', default=False)
+#=======
+#>>>>>>> 11fbd6668c7989f1589d27d3be53c75a4c7d5a56
     parser.add_argument('-sch', '--scheduler',
                         help='Set scan scheduler to use.',
                         choices=['SpeedScan', 'SpawnScan',
