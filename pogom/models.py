@@ -2772,7 +2772,7 @@ def parse_gyms(args, gym_responses, wh_update_queue, db_update_queue):
     if gym_pokemon:
         db_update_queue.put((GymPokemon, gym_pokemon))
 	if trainers:
--       db_update_queue.put((Trainer, trainers))
+		db_update_queue.put((Trainer, trainers))
 
     # Get rid of all the gym members, we're going to insert new records.
     if gym_details:
