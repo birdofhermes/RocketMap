@@ -49,8 +49,8 @@ def get_s2_coverage(swLat, swLng, neLat, neLng):
     geoms = []
 
     r = s2sphere.RegionCoverer()
-    r.min_level = 10
-    r.max_level = 10
+    r.min_level = 17
+    r.max_level = 17
     r.max_cells = 40
     p1 = s2sphere.LatLng.from_degrees(float(swLat), float(swLng))
     p2 = s2sphere.LatLng.from_degrees(float(neLat), float(neLng))
